@@ -107,7 +107,7 @@ Page *BufferPoolManager::NewPageImpl(page_id_t *page_id) {
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   // 4.   Set the page ID output parameter. Return a pointer to P.
-  
+
   frame_id_t victim;
   if (!free_list_.empty() > 0) {
     victim = free_list_.front();
@@ -137,9 +137,6 @@ Page *BufferPoolManager::NewPageImpl(page_id_t *page_id) {
   pages_[victim].is_dirty_ = false;
   pages_[victim].page_id_ = *page_id;
   return &pages_[victim];
-
-
- 
 }
 
 bool BufferPoolManager::DeletePageImpl(page_id_t page_id) {
@@ -148,9 +145,7 @@ bool BufferPoolManager::DeletePageImpl(page_id_t page_id) {
   // 1.   If P does not exist, return true.
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
-  
-  
-  
+
   auto page = page_table_.find(page_id);
   if (page_id == INVALID_PAGE_ID || page == page_table_.end()) return true;
   if (pages_[page->second].GetPinCount() != 0) return false;

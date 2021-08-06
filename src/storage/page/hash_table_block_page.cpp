@@ -17,30 +17,50 @@ namespace bustub {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 KeyType HASH_TABLE_BLOCK_TYPE::KeyAt(slot_offset_t bucket_ind) const {
-  return {};
+  if (!IsReadable(bucket_ind)) {
+    throw std::runtime_error("Bucket " + std::to_string(bucket_ind) + " is not readable");
+  }
+  return array_[bucket_ind].first;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 ValueType HASH_TABLE_BLOCK_TYPE::ValueAt(slot_offset_t bucket_ind) const {
-  return {};
+  if (!IsReadable(bucket_ind)) {
+    throw std::runtime_error("Bucket " + std::to_string(bucket_ind) + " is not readable");
+  }
+  return array_[bucket_ind].second;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BLOCK_TYPE::Insert(slot_offset_t bucket_ind, const KeyType &key, const ValueType &value) {
-  return false;
+  char expected = readable_[bucket_ind / 8];
+  char desired = readable_[bucket_ind / 8] | (1 << (bucket_ind % 8));
+  if (!readable_[bucket_ind / 8].compare_exchange_weak(expected, desired)) return false;
+  if (expected == desired) return false;
+  array_[bucket_ind] = std::make_pair(key, value);
+  occupied_[bucket_ind / 8] |= (1 << (bucket_ind % 8));
+  return true;
+
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
-void HASH_TABLE_BLOCK_TYPE::Remove(slot_offset_t bucket_ind) {}
+void HASH_TABLE_BLOCK_TYPE::Remove(slot_offset_t bucket_ind) {
+  if (!IsReadable(bucket_ind)) {
+    throw std::runtime_error("Bucket " + std::to_string(bucket_ind) + " is not readable");
+  }
+  char expected = readable_[bucket_ind / 8];
+  char desired = readable_[bucket_ind / 8] & ~(1 << (bucket_ind % 8));
+  readable_[bucket_ind / 8].compare_exchange_weak(expected, desired);
+}
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BLOCK_TYPE::IsOccupied(slot_offset_t bucket_ind) const {
-  return false;
+  return (occupied_[bucket_ind / 8] >> (bucket_ind % 8)) & 1;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BLOCK_TYPE::IsReadable(slot_offset_t bucket_ind) const {
-  return false;
+  return (readable_[bucket_ind / 8] >> (bucket_ind % 8)) & 1;
 }
 
 // DO NOT REMOVE ANYTHING BELOW THIS LINE
