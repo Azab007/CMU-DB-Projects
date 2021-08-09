@@ -54,6 +54,7 @@ HASH_TABLE_TYPE::LinearProbeHashTable(const std::string &name, BufferPoolManager
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result) {
+  table_latch_.RLock();
   Page *header = buffer_pool_manager_->FetchPage(header_page_id_);
     auto *headerPage = reinterpret_cast<HashTableHeaderPage*>(header->GetData());
     auto start = hash_fn_.GetHash(key) % headerPage->GetSize();
@@ -70,13 +71,18 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
     auto block = buffer_pool_manager_->FetchPage(blockPageId);
     auto blockPage = reinterpret_cast<HASH_TABLE_BLOCK_TYPE *>(block->GetData());
     auto offset = i % BLOCK_ARRAY_SIZE;
-      if(!blockPage->IsOccupied(offset)) break;
+      block->RLatch();
+      if(!blockPage->IsOccupied(offset)) {
+        block->RUnlatch();
+        break;
+        }
       
       if(blockPage->IsReadable(offset) && comparator_(blockPage->KeyAt(offset),key) == 0) {
         result->push_back(blockPage->ValueAt(offset));
       }
+      block->RUnlatch();
     }
-
+    table_latch_.RUnlock();
     if (result->size() > 0){
       return true;
     }
@@ -88,6 +94,7 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const ValueType &value) {
+  table_latch_.RLock();
   Page *header = buffer_pool_manager_->FetchPage(header_page_id_);
   auto *headerPage = reinterpret_cast<HashTableHeaderPage*>(header->GetData());
   auto start = hash_fn_.GetHash(key) % headerPage->GetSize();
@@ -103,17 +110,22 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
   auto block = buffer_pool_manager_->FetchPage(blockPageId);
   auto blockPage = reinterpret_cast<HASH_TABLE_BLOCK_TYPE *>(block->GetData());
   auto offset = i % BLOCK_ARRAY_SIZE;
+  block->WLatch();
     if(blockPage->IsOccupied(offset) && comparator_(blockPage->KeyAt(offset),key) == 0 && blockPage->ValueAt(offset) == value){
+      block->WUnlatch();
+      table_latch_.RUnlock();
       return false;
     }
 
     if(blockPage->Insert(offset,key,value)) {
+      block->WUnlatch();
+      table_latch_.RUnlock();
       return true;
     }
 
-    
+   block->WUnlatch(); 
   }
-
+  table_latch_.RUnlock();
   this->Resize(headerPage->GetSize());
   return this->Insert(transaction, key, value);
 }
@@ -123,10 +135,11 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const ValueType &value) {
+  table_latch_.RLock();
   Page *header = buffer_pool_manager_->FetchPage(header_page_id_);
   auto *headerPage = reinterpret_cast<HashTableHeaderPage*>(header->GetData());
   auto start = hash_fn_.GetHash(key) % headerPage->GetSize();
-  auto found = false;
+  //auto found = false;
   auto finish = false;
     for (auto i = start;;i = (i+1) % headerPage->GetSize()){
 
@@ -139,15 +152,18 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   auto block = buffer_pool_manager_->FetchPage(blockPageId);
   auto blockPage = reinterpret_cast<HASH_TABLE_BLOCK_TYPE *>(block->GetData());
   auto offset = i % BLOCK_ARRAY_SIZE;
-    
+    block->WLatch();
     if(blockPage->IsOccupied(offset) && blockPage->IsReadable(offset) && comparator_(blockPage->KeyAt(offset),key) == 0 &&
     value == blockPage->ValueAt(offset)) {
       blockPage->Remove(offset);
-      found = true;
+      block->WUnlatch();
+      table_latch_.RUnlock();
+      return true;
     }
+    block->WUnlatch();
   }
-
-  return found;
+  table_latch_.RUnlock();
+  return false;
 }
 
 /*****************************************************************************
@@ -155,6 +171,7 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_TYPE::Resize(size_t initial_size) {
+  table_latch_.WLock();
   Page *header = buffer_pool_manager_->FetchPage(header_page_id_);
   auto *headerPage = reinterpret_cast<HashTableHeaderPage*>(header->GetData());
   auto newSize = initial_size * 2;
@@ -173,6 +190,7 @@ void HASH_TABLE_TYPE::Resize(size_t initial_size) {
       }
       this->buffer_pool_manager_->DeletePage(headerPage->GetBlockPageId(idx));
     }
+    table_latch_.WUnlock();
 }
 
 /*****************************************************************************
@@ -180,9 +198,11 @@ void HASH_TABLE_TYPE::Resize(size_t initial_size) {
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 size_t HASH_TABLE_TYPE::GetSize() {
+  table_latch_.RLock();
   Page *header = buffer_pool_manager_->FetchPage(header_page_id_);
   auto *headerPage = reinterpret_cast<HashTableHeaderPage*>(header->GetData());
   auto size = headerPage->GetSize();
+  table_latch_.WUnlock();
   return size;
 }
 
