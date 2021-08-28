@@ -13,7 +13,12 @@
 #include "storage/page/hash_table_header_page.h"
 
 namespace bustub {
-page_id_t HashTableHeaderPage::GetBlockPageId(size_t index) { return block_page_ids_[index]; }
+page_id_t HashTableHeaderPage::GetBlockPageId(size_t index) { 
+  if (index > this->GetSize()) {
+    throw new Exception("Index " + std::to_string(index) + "is out of range. Size: " + std::to_string(this->GetSize()));
+  }
+  return this->block_page_ids_[index];
+ }
 
 page_id_t HashTableHeaderPage::GetPageId() const { return page_id_; }
 
@@ -24,7 +29,10 @@ lsn_t HashTableHeaderPage::GetLSN() const { return lsn_; }
 void HashTableHeaderPage::SetLSN(lsn_t lsn) { lsn_ = lsn; }
 
 void HashTableHeaderPage::AddBlockPageId(page_id_t page_id) {
-  block_page_ids_[next_ind_] = page_id;
+if (next_ind_ >= this->GetSize()) {
+    throw new Exception("Reach limit of block_page_ids_");
+  }
+  this->block_page_ids_[next_ind_] = page_id;
   next_ind_++;
 }
 

@@ -77,14 +77,42 @@ class Catalog {
    */
   TableMetadata *CreateTable(Transaction *txn, const std::string &table_name, const Schema &schema) {
     BUSTUB_ASSERT(names_.count(table_name) == 0, "Table names should be unique!");
-    return nullptr;
+    // auto table_oid = next_table_oid_++;
+    // names_.insert({table_name, table_oid});
+    // auto table_heap = new TableHeap{bpm_, lock_manager_, log_manager_, txn};
+    // auto table = new TableMetadata{schema, table_name,static_cast<std::unique_ptr<TableHeap>>(table_heap), table_oid};
+    // tables_.insert({table_oid, static_cast<std::unique_ptr<TableMetadata>>(table)});
+    // return tables_[table_oid].get();
+
+    table_oid_t table_oid = next_table_oid_++;
+    names_.insert({table_name, table_oid});
+    TableHeap* table_heap = new TableHeap{bpm_, lock_manager_, log_manager_, txn};
+    TableMetadata *table = new TableMetadata {schema, table_name, static_cast<std::unique_ptr<TableHeap>>(table_heap), table_oid};
+    tables_.insert({table_oid, static_cast<std::unique_ptr<TableMetadata>>(table)});
+    return table;
   }
 
   /** @return table metadata by name */
-  TableMetadata *GetTable(const std::string &table_name) { return nullptr; }
+  TableMetadata *GetTable(const std::string &table_name) { 
+    //  if (this->names_.find(table_name) == this->names_.end()) {
+    //   throw std::out_of_range("Can't find table: " + table_name);
+    // }
+    // return tables_[names_[table_name]].get();
+      auto iter = names_.find(table_name);
+      if (iter == names_.end()) throw std::out_of_range {"The table shouldn't exist in the catalog yet."};
+      return tables_.find(iter->second)->second.get();
+     }
 
   /** @return table metadata by oid */
-  TableMetadata *GetTable(table_oid_t table_oid) { return nullptr; }
+  TableMetadata *GetTable(table_oid_t table_oid) { 
+    // if (this->tables_.find(table_oid) == this->tables_.end()) {
+    //   throw std::out_of_range("Can't find table oid: " + std::to_string(table_oid));
+    // }
+    // return tables_[table_oid].get(); 
+     auto iter = tables_.find(table_oid);
+      if (iter ==tables_.end()) throw std::out_of_range {"The table shouldn't exist in the catalog yet."};
+      return iter->second.get();
+    }
 
   /**
    * Create a new index, populate existing data of the table and return its metadata.
@@ -101,7 +129,18 @@ class Catalog {
   IndexInfo *CreateIndex(Transaction *txn, const std::string &index_name, const std::string &table_name,
                          const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs,
                          size_t keysize) {
-    return nullptr;
+  //   auto index_oid = next_index_oid_++;
+
+  // std::unordered_map<std::string, index_oid_t> inner;
+  // inner.insert(std::make_pair(index_name, index_oid));
+  // index_names_.insert(std::make_pair(table_name, inner));
+  // // static_cast<std::unique_ptr<IndexMetadata>>(indx)
+  //   // auto indx = new Index(index_name, table_name, &schema, key_attrs);
+  //   auto indx = new Index()
+  //   auto index_info = new IndexInfo{key_schema, index_name,static_cast<std::unique_ptr<Index>>(indx), index_oid,table_name, keysize};
+  //   indexes_.insert({index_oid, static_cast<std::unique_ptr<IndexInfo>>(index_info)});
+  //   return indexes_[index_oid].get();
+  return nullptr;
   }
 
   IndexInfo *GetIndex(const std::string &index_name, const std::string &table_name) { return nullptr; }

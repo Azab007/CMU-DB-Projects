@@ -45,9 +45,9 @@ bool HASH_TABLE_BLOCK_TYPE::Insert(slot_offset_t bucket_ind, const KeyType &key,
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_BLOCK_TYPE::Remove(slot_offset_t bucket_ind) {
-  if (!IsReadable(bucket_ind)) {
-    throw std::runtime_error("Bucket " + std::to_string(bucket_ind) + " is not readable");
-  }
+  // if (!IsReadable(bucket_ind)) {
+  //   throw std::runtime_error("Bucket " + std::to_string(bucket_ind) + " is not readable");
+  // }
   char expected = readable_[bucket_ind / 8];
   char desired = readable_[bucket_ind / 8] & ~(1 << (bucket_ind % 8));
   readable_[bucket_ind / 8].compare_exchange_weak(expected, desired);
